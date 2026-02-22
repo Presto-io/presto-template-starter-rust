@@ -16,9 +16,22 @@ preview: build
 
 # 运行测试
 test: build
-	./$(BINARY) --manifest | python3 -m json.tool > /dev/null
-	./$(BINARY) --example | ./$(BINARY) > /dev/null
-	@echo "✓ 所有测试通过"
+	@echo "Testing manifest..."
+	@./$(BINARY) --manifest | python3 -m json.tool > /dev/null
+	@echo "Testing example round-trip..."
+	@./$(BINARY) --example | ./$(BINARY) > /dev/null
+	@echo "Testing version..."
+	@./$(BINARY) --version > /dev/null
+	@# 校验 category 字段
+	@./$(BINARY) --manifest | python3 -c "\
+import json, sys, re; \
+m = json.load(sys.stdin); \
+cat = m.get('category', ''); \
+(not cat) and (print('ERROR: category is empty', file=sys.stderr) or sys.exit(1)); \
+(len(cat) > 20) and (print(f'ERROR: category too long ({len(cat)} > 20)', file=sys.stderr) or sys.exit(1)); \
+(not re.match(r'^[\u4e00-\u9fff\w\s-]+$$', cat)) and (print(f'ERROR: category contains invalid characters: {cat}', file=sys.stderr) or sys.exit(1)); \
+print(f'  category: {cat} ✓')"
+	@echo "All tests passed."
 
 # 清理
 clean:

@@ -17,6 +17,10 @@ struct Cli {
     /// Output embedded example.md
     #[arg(long)]
     example: bool,
+
+    /// Output version from manifest
+    #[arg(long = "version")]
+    version_flag: bool,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -30,6 +34,13 @@ fn main() {
 
     if cli.manifest {
         print!("{}", MANIFEST);
+        return;
+    }
+    if cli.version_flag {
+        let manifest: serde_json::Value = serde_json::from_str(MANIFEST).unwrap();
+        if let Some(v) = manifest.get("version") {
+            println!("{}", v.as_str().unwrap_or("unknown"));
+        }
         return;
     }
     if cli.example {

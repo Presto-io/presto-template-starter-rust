@@ -39,8 +39,8 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Install cross (Linux arm64)
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
+      - name: Install cross (for cross-compilation)
+        if: matrix.target == 'aarch64-unknown-linux-gnu' || matrix.target == 'aarch64-pc-windows-msvc'
         run: cargo install cross --git https://github.com/cross-rs/cross
 
       - name: Read template name from manifest
@@ -49,11 +49,11 @@ jobs:
         run: echo "name=$(python3 -c "import json; print(json.load(open('manifest.json'))['name'])")" >> "$GITHUB_OUTPUT"
 
       - name: Build (cross)
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        if: matrix.target == 'aarch64-unknown-linux-gnu' || matrix.target == 'aarch64-pc-windows-msvc'
         run: cross build --release --target ${{ matrix.target }}
 
       - name: Build (native)
-        if: matrix.target != 'aarch64-unknown-linux-gnu'
+        if: matrix.target != 'aarch64-unknown-linux-gnu' && matrix.target != 'aarch64-pc-windows-msvc'
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Rename artifact (unix)
