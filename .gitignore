@@ -1,3 +1,6 @@
 /target
 presto-template-*
 !src/
+
+# Claude Code
+.claude/
