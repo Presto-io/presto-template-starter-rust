@@ -51,6 +51,18 @@ GitHub Actions 会自动：
 
 发布后，Presto template-registry 会自动发现并收录你的模板（需要仓库有 `presto-template` topic）。
 
+## 获取 Verified 标识
+
+你的模板发布后默认为 community 等级（需用户开启"社区模板"开关才可见）。
+如果希望获得 verified 标识（默认在商店可见），template-registry 的 CI 会自动检测你的新版本并创建 PR。
+维护者审批后，CI 会从你的源码编译二进制并发布，确保二进制安全可信。
+
+无需额外操作，只需确保：
+
+- 仓库有 `presto-template` topic
+- 使用 tag 发布 Release（如 `v1.0.0`）
+- 源码可以通过 `cargo build --release` 编译
+
 ## 项目结构
 
 ```
