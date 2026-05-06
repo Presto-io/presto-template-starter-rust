@@ -45,9 +45,17 @@ jobs:
         shell: bash
         run: |
           # Try cargo-binstall for fast prebuilt binary, fallback to source build
-          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash \
-            && cargo binstall cross --no-confirm \
-            || cargo install cross --git https://github.com/cross-rs/cross
+          if curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash; then
+            cargo binstall cross --no-confirm || cargo install cross --git https://github.com/cross-rs/cross
+          else
+            cargo install cross --git https://github.com/cross-rs/cross
+          fi
+
+      - name: Sync manifest version from release tag
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          python3 scripts/sync-manifest-version.py "${VERSION}" manifest.json
 
       - name: Read template name from manifest
         id: meta
@@ -75,6 +83,15 @@ jobs:
         run: |
           cp target/${{ matrix.target }}/release/presto-template-starter.exe \
              presto-template-${{ steps.meta.outputs.name }}-${{ matrix.artifact_suffix }}
+
+      - name: Verify embedded manifest version
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          BIN="presto-template-${{ steps.meta.outputs.name }}-${{ matrix.artifact_suffix }}"
+          ACTUAL="$("./${BIN}" --version)"
+          test "${ACTUAL}" = "${VERSION}"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
