@@ -1,7 +1,7 @@
-use std::io::{self, Read, Write, BufWriter};
+use std::io::{self, BufWriter, Read, Write};
 
 use clap::Parser;
-use pulldown_cmark::{Event, Tag, TagEnd, HeadingLevel};
+use pulldown_cmark::{Event, HeadingLevel, Tag, TagEnd};
 use serde::Deserialize;
 
 const MANIFEST: &str = include_str!("../manifest.json");
@@ -49,7 +49,9 @@ fn main() {
     }
 
     let mut input = String::new();
-    io::stdin().read_to_string(&mut input).expect("error reading stdin");
+    io::stdin()
+        .read_to_string(&mut input)
+        .expect("error reading stdin");
 
     let (fm_str, body) = split_frontmatter(&input);
 
@@ -104,12 +106,12 @@ fn write_page_setup(w: &mut impl Write, meta: &Frontmatter) {
     writeln!(w).unwrap();
 
     if !meta.title.is_empty() {
-        writeln!(w, r#"#let title = "{}""#, meta.title).unwrap();
+        writeln!(w, r#"#let title = "{}""#, escape_typst_string(&meta.title)).unwrap();
         writeln!(w).unwrap();
         writeln!(
             w,
             r#"#align(center, text(size: 22pt, weight: "bold")[{}])"#,
-            meta.title
+            escape_typst_content(&meta.title)
         )
         .unwrap();
         writeln!(w, r#"#v(1em)"#).unwrap();
@@ -120,9 +122,20 @@ fn write_page_setup(w: &mut impl Write, meta: &Frontmatter) {
 /// Parses Markdown body using pulldown-cmark and outputs Typst.
 fn render_body(w: &mut impl Write, source: &str) {
     let parser = pulldown_cmark::Parser::new(source);
+    let mut code_block: Option<String> = None;
 
     for event in parser {
         match event {
+            Event::Text(text) if code_block.is_some() => {
+                if let Some(content) = &mut code_block {
+                    content.push_str(&text);
+                }
+            }
+            Event::SoftBreak if code_block.is_some() => {
+                if let Some(content) = &mut code_block {
+                    content.push('\n');
+                }
+            }
             Event::Start(Tag::Heading { level, .. }) => {
                 let n = heading_level_to_u8(level);
                 write!(w, "#heading(level: {})[", n).unwrap();
@@ -139,7 +152,7 @@ fn render_body(w: &mut impl Write, source: &str) {
             }
 
             Event::Text(text) => {
-                write!(w, "{}", text).unwrap();
+                write!(w, "{}", escape_typst_content(&text)).unwrap();
             }
             Event::SoftBreak => {
                 writeln!(w).unwrap();
@@ -177,15 +190,15 @@ fn render_body(w: &mut impl Write, source: &str) {
             }
 
             Event::Code(text) => {
-                write!(w, r#"#raw("{}")"#, text).unwrap();
+                write!(w, r#"#raw("{}")"#, escape_typst_string(&text)).unwrap();
             }
 
             Event::Start(Tag::CodeBlock(_)) => {
-                write!(w, "```\n").unwrap();
+                code_block = Some(String::new());
             }
             Event::End(TagEnd::CodeBlock) => {
-                writeln!(w, "```").unwrap();
-                writeln!(w).unwrap();
+                let content = code_block.take().unwrap_or_default();
+                write!(w, "{}", typst_raw_block(content.trim_end_matches('\n'))).unwrap();
             }
 
             _ => {}
@@ -202,4 +215,35 @@ fn heading_level_to_u8(level: HeadingLevel) -> u8 {
         HeadingLevel::H5 => 5,
         HeadingLevel::H6 => 6,
     }
+}
+
+fn escape_typst_string(text: &str) -> String {
+    text.replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('#', "\\#")
+}
+
+fn escape_typst_content(text: &str) -> String {
+    text.replace('\\', "\\\\")
+        .replace(']', "\\]")
+        .replace('#', "\\#")
+}
+
+fn typst_raw_block(content: &str) -> String {
+    let fence = "`".repeat(std::cmp::max(3, max_backtick_run(content) + 1));
+    format!("{fence}\n{content}\n{fence}\n\n")
+}
+
+fn max_backtick_run(text: &str) -> usize {
+    let mut max_run = 0;
+    let mut current = 0;
+    for ch in text.chars() {
+        if ch == '`' {
+            current += 1;
+            max_run = std::cmp::max(max_run, current);
+        } else {
+            current = 0;
+        }
+    }
+    max_run
 }
