@@ -9,7 +9,7 @@ permissions: {}
 jobs:
   build:
     permissions:
-      contents: write
+      contents: read
     strategy:
       matrix:
         include:
@@ -42,14 +42,7 @@ jobs:
 
       - name: Install cross (for cross-compilation)
         if: matrix.target == 'aarch64-unknown-linux-gnu' || matrix.target == 'aarch64-pc-windows-msvc'
-        shell: bash
-        run: |
-          # Try cargo-binstall for fast prebuilt binary, fallback to source build
-          if curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash; then
-            cargo binstall cross --no-confirm || cargo install cross --git https://github.com/cross-rs/cross
-          else
-            cargo install cross --git https://github.com/cross-rs/cross
-          fi
+        run: cargo install cross --version 0.2.5 --locked
 
       - name: Sync manifest version from release tag
         shell: bash

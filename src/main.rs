@@ -6,6 +6,7 @@ use serde::Deserialize;
 
 const MANIFEST: &str = include_str!("../manifest.json");
 const EXAMPLE: &str = include_str!("../example.md");
+const MAX_INPUT_BYTES: u64 = 10 * 1024 * 1024;
 
 #[derive(Parser)]
 #[command(about = "Presto template: Markdown → Typst converter")]
@@ -48,10 +49,7 @@ fn main() {
         return;
     }
 
-    let mut input = String::new();
-    io::stdin()
-        .read_to_string(&mut input)
-        .expect("error reading stdin");
+    let input = read_stdin_limited().expect("error reading stdin");
 
     let (fm_str, body) = split_frontmatter(&input);
 
@@ -68,6 +66,20 @@ fn main() {
     render_body(&mut w, body);
 
     w.flush().expect("error flushing output");
+}
+
+fn read_stdin_limited() -> io::Result<String> {
+    let stdin = io::stdin();
+    let mut limited = stdin.lock().take(MAX_INPUT_BYTES + 1);
+    let mut input = String::new();
+    limited.read_to_string(&mut input)?;
+    if input.len() as u64 > MAX_INPUT_BYTES {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("input exceeds {} bytes", MAX_INPUT_BYTES),
+        ));
+    }
+    Ok(input)
 }
 
 /// Separates YAML frontmatter (between --- delimiters) from the body.
