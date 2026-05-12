@@ -25,6 +25,8 @@ test: build test-security
 	@./$(BINARY) --manifest | python3 -m json.tool > /dev/null
 	@echo "Testing example round-trip..."
 	@./$(BINARY) --example | ./$(BINARY) > /dev/null
+	@echo "Testing output info..."
+	@./$(BINARY) --example | ./$(BINARY) --info | python3 -m json.tool > /dev/null
 	@echo "Testing version..."
 	@./$(BINARY) --version > /dev/null
 	@# 校验 category 字段

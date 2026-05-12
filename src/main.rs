@@ -2,7 +2,7 @@ use std::io::{self, BufWriter, Read, Write};
 
 use clap::Parser;
 use pulldown_cmark::{Event, HeadingLevel, Tag, TagEnd};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 const MANIFEST: &str = include_str!("../manifest.json");
 const EXAMPLE: &str = include_str!("../example.md");
@@ -22,12 +22,34 @@ struct Cli {
     /// Output version from manifest
     #[arg(long = "version")]
     version_flag: bool,
+
+    /// Output document info JSON
+    #[arg(long)]
+    info: bool,
 }
 
 #[derive(Debug, Default, Deserialize)]
 struct Frontmatter {
     #[serde(default)]
     title: String,
+}
+
+#[derive(Debug, Serialize)]
+struct OutputInfo {
+    #[serde(rename = "schemaVersion")]
+    schema_version: u8,
+    #[serde(rename = "outputBaseName")]
+    output_base_name: String,
+    #[serde(rename = "previewTitle")]
+    preview_title: String,
+    document: DocumentInfo,
+}
+
+#[derive(Debug, Serialize)]
+struct DocumentInfo {
+    title: String,
+    keywords: Vec<String>,
+    language: String,
 }
 
 fn main() {
@@ -59,6 +81,11 @@ fn main() {
         serde_yaml::from_str(fm_str).expect("error parsing frontmatter")
     };
 
+    if cli.info {
+        println!("{}", serde_json::to_string(&output_info(&meta)).unwrap());
+        return;
+    }
+
     let stdout = io::stdout();
     let mut w = BufWriter::new(stdout.lock());
 
@@ -66,6 +93,37 @@ fn main() {
     render_body(&mut w, body);
 
     w.flush().expect("error flushing output");
+}
+
+fn output_info(meta: &Frontmatter) -> OutputInfo {
+    let title = if meta.title.trim().is_empty() {
+        "output".to_string()
+    } else {
+        meta.title.trim().to_string()
+    };
+    OutputInfo {
+        schema_version: 1,
+        output_base_name: clean_filename_base(&title),
+        preview_title: title.clone(),
+        document: DocumentInfo {
+            title,
+            keywords: vec!["模板".to_string()],
+            language: "zh-CN".to_string(),
+        },
+    }
+}
+
+fn clean_filename_base(value: &str) -> String {
+    let cleaned = value
+        .trim()
+        .chars()
+        .map(|ch| if "/\\:*?\"<>|".contains(ch) { '_' } else { ch })
+        .collect::<String>();
+    if cleaned.is_empty() {
+        "output".to_string()
+    } else {
+        cleaned
+    }
 }
 
 fn read_stdin_limited() -> io::Result<String> {
