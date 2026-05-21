@@ -21,10 +21,13 @@ preview: build
 
 # 运行测试
 test: build test-security
+	@echo "Running unit tests..."
+	@cargo test
 	@echo "Testing manifest..."
 	@./$(BINARY) --manifest | python3 -m json.tool > /dev/null
 	@echo "Testing example round-trip..."
-	@./$(BINARY) --example | ./$(BINARY) > /dev/null
+	@OUTPUT=$$(./$(BINARY) --example | ./$(BINARY)); \
+	[ -n "$$(printf '%s' "$$OUTPUT" | tr -d '[:space:]')" ] || { echo "ERROR: conversion produced empty Typst"; exit 1; }
 	@echo "Testing output info..."
 	@./$(BINARY) --example | ./$(BINARY) --info | python3 -m json.tool > /dev/null
 	@echo "Testing version..."

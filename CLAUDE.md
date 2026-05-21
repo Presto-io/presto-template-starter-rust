@@ -10,9 +10,10 @@ GitHub Template Repository，开发者从此仓库创建新仓库后，用 AI �
 ⚠️ Presto 模板是**独立二进制**，不是文件模板。
 
 - 编译后的二进制通过 stdin/stdout 协议工作
+- 默认转换模式必须输出非空 Typst；转换失败或空白输出必须写 stderr 并非 0 退出
 - manifest.json 和 example.md **编译时嵌入**（`include_str!()`），不是运行时读取
 - 二进制禁止网络访问、禁止文件写入、禁止额外 CLI flag
-- 只允许四种调用：管道转换、`--manifest`、`--example`、`--version`
+- 只允许协议内调用：管道转换、`--manifest`、`--example`、`--version`、`--info`
 
 ## 技术栈
 

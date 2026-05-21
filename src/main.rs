@@ -1,4 +1,4 @@
-use std::io::{self, BufWriter, Read, Write};
+use std::io::{self, Read, Write};
 
 use clap::Parser;
 use pulldown_cmark::{Event, HeadingLevel, Tag, TagEnd};
@@ -71,14 +71,26 @@ fn main() {
         return;
     }
 
-    let input = read_stdin_limited().expect("error reading stdin");
+    let input = match read_stdin_limited() {
+        Ok(input) => input,
+        Err(err) => {
+            eprintln!("error reading stdin: {err}");
+            std::process::exit(1);
+        }
+    };
 
     let (fm_str, body) = split_frontmatter(&input);
 
     let meta: Frontmatter = if fm_str.is_empty() {
         Frontmatter::default()
     } else {
-        serde_yaml::from_str(fm_str).expect("error parsing frontmatter")
+        match serde_yaml::from_str(fm_str) {
+            Ok(meta) => meta,
+            Err(err) => {
+                eprintln!("error parsing frontmatter: {err}");
+                std::process::exit(1);
+            }
+        }
     };
 
     if cli.info {
@@ -86,13 +98,30 @@ fn main() {
         return;
     }
 
-    let stdout = io::stdout();
-    let mut w = BufWriter::new(stdout.lock());
+    let mut output: Vec<u8> = Vec::new();
 
-    write_page_setup(&mut w, &meta);
-    render_body(&mut w, body);
+    write_page_setup(&mut output, &meta);
+    render_body(&mut output, body);
 
-    w.flush().expect("error flushing output");
+    let output = match String::from_utf8(output) {
+        Ok(output) => output,
+        Err(err) => {
+            eprintln!("error converting template: output is not UTF-8: {err}");
+            std::process::exit(1);
+        }
+    };
+    if let Err(err) = ensure_non_blank_typst(&output) {
+        eprintln!("error converting template: {err}");
+        std::process::exit(1);
+    }
+    print!("{output}");
+}
+
+fn ensure_non_blank_typst(output: &str) -> Result<(), &'static str> {
+    if output.trim().is_empty() {
+        return Err("converter produced empty Typst output");
+    }
+    Ok(())
 }
 
 fn output_info(meta: &Frontmatter) -> OutputInfo {
@@ -316,4 +345,19 @@ fn max_backtick_run(text: &str) -> usize {
         }
     }
     max_run
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ensure_non_blank_typst;
+
+    #[test]
+    fn rejects_blank_typst_output() {
+        assert!(ensure_non_blank_typst(" \n\t").is_err());
+    }
+
+    #[test]
+    fn accepts_non_blank_typst_output() {
+        assert!(ensure_non_blank_typst("#set page()\n").is_ok());
+    }
 }

@@ -4,6 +4,8 @@ GitHub Template Repository — 用于创建 Presto 模板的 Rust 语言起始�
 
 Presto 模板是一个将 Markdown 转换为 Typst 排版源码的命令行工具。本仓库提供了最小骨架，你只需关注转换逻辑的开发。
 
+模板协议要求默认模式从 stdin 读取 Markdown，并向 stdout 输出非空 Typst。转换失败或生成空白 Typst 必须写 stderr 并以非 0 状态退出；不要吞掉异常后返回空输出。
+
 ## 快速开始
 
 ### 1. 放入参考文件
